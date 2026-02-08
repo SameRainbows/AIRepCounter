@@ -67,6 +67,8 @@ export default function Home() {
   const lastRepCountRef = useRef(0);
   const frameRef = useRef<number | null>(null);
   const landmarkerReadyRef = useRef(false);
+  const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
 
   useEffect(() => {
     setSessions(loadSessions());
@@ -103,6 +105,19 @@ export default function Home() {
     setMotivation(MOTIVATION_LINES[idx]);
   }, [elapsedSec, isRunning]);
 
+  const refreshCameras = async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      setCameraDevices([]);
+      return;
+    }
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter((device) => device.kind === "videoinput");
+    setCameraDevices(videoDevices);
+    if (!selectedDeviceId && videoDevices.length > 0) {
+      setSelectedDeviceId(videoDevices[0].deviceId);
+    }
+  };
+
   const waitForVideoReady = (video: HTMLVideoElement, timeoutMs = 2000) =>
     new Promise<boolean>((resolve) => {
       if (video.readyState >= 2) {
@@ -134,10 +149,18 @@ export default function Home() {
     }
     try {
       setStatus("Requesting camera...");
+      await refreshCameras();
+      if (!navigator.mediaDevices) {
+        setStatus("Camera not supported in this browser");
+        return;
+      }
       const preferred = { width: 1280, height: 720, frameRate: { ideal: 30 } };
       let stream: MediaStream | null = null;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: preferred });
+        const constraint = selectedDeviceId
+          ? { ...preferred, deviceId: { exact: selectedDeviceId } }
+          : preferred;
+        stream = await navigator.mediaDevices.getUserMedia({ video: constraint });
       } catch (firstError) {
         setStatus("Retrying camera with default constraints...");
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -413,6 +436,18 @@ export default function Home() {
               <button className="secondary" onClick={stopCamera}>
                 Stop Camera
               </button>
+              <select
+                value={selectedDeviceId}
+                onChange={(e) => setSelectedDeviceId(e.target.value)}
+                aria-label="Camera device"
+              >
+                {cameraDevices.length === 0 && <option value="">No cameras detected</option>}
+                {cameraDevices.map((device) => (
+                  <option key={device.deviceId} value={device.deviceId}>
+                    {device.label || "Camera"}
+                  </option>
+                ))}
+              </select>
               <button className="secondary" onClick={resetSession}>
                 Reset Session
               </button>
