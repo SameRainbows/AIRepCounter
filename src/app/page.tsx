@@ -163,7 +163,6 @@ export default function Home() {
       }
       releaseStream();
       setStatus("Requesting camera...");
-      await refreshCameras();
       if (!navigator.mediaDevices) {
         setStatus("Camera not supported in this browser");
         return;
@@ -204,10 +203,16 @@ export default function Home() {
       } catch (error) {
         setStatus("Click Start Camera to begin playback");
       }
-      await refreshCameras();
-      await loadPoseLandmarker();
+      try {
+        await refreshCameras();
+      } catch {
+        // Ignore device enumeration failures; stream is already active.
+      }
       landmarkerReadyRef.current = true;
       setStatus("Camera ready");
+      loadPoseLandmarker().catch(() => {
+        setPoseStatus("Pose model error");
+      });
       if (!isRunning) {
         setIsRunning(true);
         setSessionStart(Date.now());
