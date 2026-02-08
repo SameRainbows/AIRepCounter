@@ -140,6 +140,15 @@ export default function Home() {
       const timer = window.setTimeout(onTimeout, timeoutMs);
     });
 
+  const releaseStream = () => {
+    const video = videoRef.current;
+    if (video?.srcObject) {
+      const tracks = (video.srcObject as MediaStream).getTracks();
+      tracks.forEach((track) => track.stop());
+      video.srcObject = null;
+    }
+  };
+
   const startCamera = async () => {
     if (landmarkerReadyRef.current) {
       setIsRunning(true);
@@ -152,6 +161,7 @@ export default function Home() {
         setStatus("Camera requires HTTPS");
         return;
       }
+      releaseStream();
       setStatus("Requesting camera...");
       await refreshCameras();
       if (!navigator.mediaDevices) {
